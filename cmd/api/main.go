@@ -3,6 +3,7 @@ package main
 import (
 	"customer-service-backend/internal/common/constants"
 	"customer-service-backend/internal/config"
+	"customer-service-backend/internal/delivery/http/route"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ func main() {
 		logger.Fatal("failed to start rabbitmq client: ", zap.Error(err))
 	}
 
-	config.Bootstrap(&config.BootstrapConfig{
+	route.Bootstrap(&route.BootstrapConfig{
 		DB:           db,
 		Log:          logger,
 		App:          app,

@@ -1,15 +1,62 @@
 package route
 
-import "github.com/labstack/echo/v4"
+import (
+	"customer-service-backend/internal/config"
+	"customer-service-backend/internal/delivery/http"
+	"customer-service-backend/internal/models"
+	"customer-service-backend/internal/repository"
+	"customer-service-backend/internal/usecase"
+
+	"github.com/labstack/echo/v4"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
 
 type RouteConfig struct {
-	App *echo.Echo
+	App            *echo.Echo
+	AuthController *http.AuthController
+}
+
+type BootstrapConfig struct {
+	DB           *gorm.DB
+	App          *echo.Echo
+	Log          *zap.Logger
+	Config       *config.Config
+	Events       models.Events
+	RabbitMQConn *amqp.Connection
+	RabbitMQChan *amqp.Channel
+	RabbitMQQuit chan bool
+}
+
+func Bootstrap(config *BootstrapConfig) {
+	// Setup Repositories
+	authRepository := repository.NewAuthRepository(config.Log)
+	customerRepository := repository.NewCustomerRepository(config.Log)
+
+	// Setup PubSub
+
+	// Setup usecases
+
+	authUseCase := usecase.NewUserUseCase(config.DB, config.Log, authRepository, customerRepository)
+
+	// Setup Controller
+	authController := http.NewAuthController(authUseCase, config.Log)
+
+	routeConfig := RouteConfig{
+		App:            config.App,
+		AuthController: authController,
+	}
+
+	routeConfig.Setup()
 }
 
 func (c *RouteConfig) Setup() {
-	//Setup Route
+	c.SetupAuthRoute()
 }
 
-func (c *RouteConfig) SetupOrderRoute() {
+func (c *RouteConfig) SetupAuthRoute() {
 	// Setup endpoint
+	c.App.POST("/api/users", c.AuthController.Register)
+	c.App.POST("/api/user/login", c.AuthController.Login)
 }
