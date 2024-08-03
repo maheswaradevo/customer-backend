@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"time"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
@@ -15,12 +14,7 @@ func NewDatabase(config *Config, log *zap.Logger) *gorm.DB {
 		config.Database.Username, config.Database.Password, config.Database.Address, config.Database.Port, config.Database.Name)
 
 	db, err := gorm.Open(mysql.Open(dataSourceName), &gorm.Config{
-		Logger: logger.New(&loggerWriter{Logger: log}, logger.Config{
-			Colorful:             false,
-			LogLevel:             logger.Info,
-			ParameterizedQueries: true,
-			SlowThreshold:        time.Second * 5,
-		}),
+		Logger: logger.Default.LogMode(logger.Info),
 	})
 
 	if err != nil {
@@ -32,12 +26,4 @@ func NewDatabase(config *Config, log *zap.Logger) *gorm.DB {
 	}
 	log.Info("Connection Success")
 	return db
-}
-
-type loggerWriter struct {
-	Logger *zap.Logger
-}
-
-func (l *loggerWriter) Printf(message string, args ...interface{}) {
-	l.Logger.Info(message)
 }
