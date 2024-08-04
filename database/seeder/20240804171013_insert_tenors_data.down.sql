@@ -1,0 +1,1 @@
+DELETE FROM tenors WHERE tenor_description IN ('1 month', '2 months', '3 months', '6 months');

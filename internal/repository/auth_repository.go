@@ -19,10 +19,9 @@ func NewAuthRepository(logger *zap.Logger) *AuthRepository {
 
 func (r *AuthRepository) Create(db *gorm.DB, user *models.UserCreateRequest) (*entity.User, error) {
 	result := entity.User{
-		Username:  user.Username,
-		Password:  user.Password,
-		Email:     user.Email,
-		UpdatedAt: nil,
+		Username: user.Username,
+		Password: user.Password,
+		Email:    user.Email,
 	}
 
 	err := db.Model(&entity.User{}).Create(&result).Error

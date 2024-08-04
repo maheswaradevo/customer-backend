@@ -34,12 +34,14 @@ func Bootstrap(config *BootstrapConfig) {
 	// Setup Repositories
 	authRepository := repository.NewAuthRepository(config.Log)
 	customerRepository := repository.NewCustomerRepository(config.Log)
+	tenorRepository := repository.NewTenorRepository(config.Log)
+	creditLimitRepository := repository.NewCreditLimitRepository(config.Log)
 
 	// Setup PubSub
 	userMessaging := messaging.NewUserPublisher(&config.Events, config.Log)
 	// Setup usecases
 
-	authUseCase := usecase.NewUserUseCase(config.DB, config.Log, authRepository, customerRepository, userMessaging)
+	authUseCase := usecase.NewUserUseCase(config.DB, config.Log, authRepository, customerRepository, tenorRepository, creditLimitRepository, userMessaging)
 
 	// Setup Controller
 	authController := http.NewAuthController(authUseCase, config.Log)
