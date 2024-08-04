@@ -50,8 +50,8 @@ func (r *CreditLimitRepository) Get(db *gorm.DB, id uint64) (*entity.CreditLimit
 	return creditLimit, nil
 }
 
-func (r *CreditLimitRepository) Update(db *gorm.DB, data models.CreditLimitUpdateRequest) error {
-	db.Transaction(func(tx *gorm.DB) error {
+func (r *CreditLimitRepository) Update(data models.CreditLimitUpdateRequest) error {
+	r.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&entity.CreditLimit{}).Where("id = ?", data.ID).Updates(&models.CreditLimitUpdateRequest{
 			CreditLimit:   data.CreditLimit,
 			StartDateTime: data.StartDateTime,
