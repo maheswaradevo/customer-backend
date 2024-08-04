@@ -13,7 +13,7 @@ func ValidateIDNumber(nik string) error {
 	birthDateCode := nik[6:12] // 6-digit birth date code (YYMMDD)
 	serialNumber := nik[12:16] // 4-digit serial number
 
-	if provinceCode < "01" || provinceCode > "34" {
+	if provinceCode < "01" || provinceCode > "99" {
 		return errors.New("invalid province code")
 	}
 
@@ -35,7 +35,8 @@ func ValidateIDNumber(nik string) error {
 }
 
 func parseBirthDate(birthDateCode string) error {
-	if len(birthDateCode) != 8 {
+	fmt.Printf("birthDateCode: %v\n", birthDateCode)
+	if len(birthDateCode) != 6 {
 		return errors.New("birthDateCode should be 8 digits long")
 	}
 
@@ -44,6 +45,7 @@ func parseBirthDate(birthDateCode string) error {
 	yearCode := birthDateCode[4:]
 
 	day, err := strconv.Atoi(dayCode)
+	day = day - 40
 	if err != nil || day < 1 || day > 31 {
 		return errors.New("invalid day in birth date")
 	}
