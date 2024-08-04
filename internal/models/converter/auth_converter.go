@@ -10,5 +10,6 @@ func UserToResponse(user *entity.User) *models.UserResponse {
 		ID:       user.ID,
 		Username: user.Username,
 		Password: user.Password,
+		Email:    user.Email,
 	}
 }

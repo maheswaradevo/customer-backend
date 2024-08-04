@@ -38,7 +38,7 @@ func (u *AuthUseCase) Register(ctx echo.Context, request *models.CustomerRegiste
 	defer tx.Rollback()
 
 	userGet, err := u.AuthRepository.Get(tx, models.UserGetRequest{
-		Username: request.Email,
+		Email: request.Email,
 	})
 
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -79,6 +79,7 @@ func (u *AuthUseCase) Register(ctx echo.Context, request *models.CustomerRegiste
 	user, err := u.AuthRepository.Create(tx, &models.UserCreateRequest{
 		Username: request.Username,
 		Password: string(hashPass),
+		Email:    request.Email,
 	})
 	if err != nil {
 		tx.Rollback()
