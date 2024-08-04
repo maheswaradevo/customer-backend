@@ -106,7 +106,6 @@ type (
 	}
 	LoginResponse struct {
 		UserID              uint64 `json:"user_id"`
-		IdNumber            string `json:"id_number"`
 		Username            string `json:"username"`
 		Email               string `json:"email"`
 		AccessToken         string `json:"access_token"`

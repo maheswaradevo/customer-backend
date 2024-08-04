@@ -3,6 +3,7 @@ package usecase
 import (
 	"customer-service-backend/internal/common/constants"
 	"customer-service-backend/internal/common/helpers"
+	"customer-service-backend/internal/gateway/messaging"
 	"customer-service-backend/internal/models"
 	"customer-service-backend/internal/models/converter"
 	"customer-service-backend/internal/repository"
@@ -22,14 +23,16 @@ type AuthUseCase struct {
 	Log                *zap.Logger
 	AuthRepository     *repository.AuthRepository
 	CustomerRepository *repository.CustomerRepository
+	UserMessaging      *messaging.UserPublisher
 }
 
-func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository) *AuthUseCase {
+func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository, userMessaging *messaging.UserPublisher) *AuthUseCase {
 	return &AuthUseCase{
 		DB:                 db,
 		Log:                logger,
 		AuthRepository:     authRepository,
 		CustomerRepository: customerRepository,
+		UserMessaging:      userMessaging,
 	}
 }
 
@@ -159,5 +162,25 @@ func (u *AuthUseCase) Login(ctx echo.Context, data models.LoginRequest) (*models
 		ExpiredRefreshToken: *expRefreshToken,
 	}
 
+	go u.PublishUserLoginData(&result)
+
 	return &result, nil
+}
+
+func (u *AuthUseCase) PublishUserLoginData(data *models.LoginResponse) (bool, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			u.Log.Error("recovered from panic ", zap.Any("error", err))
+		}
+	}()
+
+	return u.UserMessaging.PushUserData(&models.UserEvent{
+		ID:                  data.UserID,
+		Email:               data.Email,
+		Username:            data.Username,
+		AccessToken:         data.AccessToken,
+		RefreshToken:        data.RefreshToken,
+		ExpiredToken:        data.ExpiredToken,
+		ExpiredRefreshToken: data.ExpiredRefreshToken,
+	})
 }

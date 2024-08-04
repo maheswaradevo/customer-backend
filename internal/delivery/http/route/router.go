@@ -3,6 +3,7 @@ package route
 import (
 	"customer-service-backend/internal/config"
 	"customer-service-backend/internal/delivery/http"
+	"customer-service-backend/internal/gateway/messaging"
 	"customer-service-backend/internal/models"
 	"customer-service-backend/internal/repository"
 	"customer-service-backend/internal/usecase"
@@ -35,10 +36,10 @@ func Bootstrap(config *BootstrapConfig) {
 	customerRepository := repository.NewCustomerRepository(config.Log)
 
 	// Setup PubSub
-
+	userMessaging := messaging.NewUserPublisher(&config.Events, config.Log)
 	// Setup usecases
 
-	authUseCase := usecase.NewUserUseCase(config.DB, config.Log, authRepository, customerRepository)
+	authUseCase := usecase.NewUserUseCase(config.DB, config.Log, authRepository, customerRepository, userMessaging)
 
 	// Setup Controller
 	authController := http.NewAuthController(authUseCase, config.Log)
