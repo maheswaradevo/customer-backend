@@ -53,7 +53,7 @@ func Decode(tokenString string) (result map[string]interface{}, err error) {
 	return
 }
 
-func createAccessToken(data map[string]interface{}) (*string, *int64, error) {
+func createAccessToken(data map[string]interface{}) (*string, *time.Duration, error) {
 	jwtTimeout, _ := time.ParseDuration(config.GetConfig().JWTConfig.Timeout)
 	exp := time.Now().Add(jwtTimeout).Unix()
 
@@ -63,10 +63,10 @@ func createAccessToken(data map[string]interface{}) (*string, *int64, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &accessToken, &exp, err
+	return &accessToken, &jwtTimeout, err
 }
 
-func createRefreshToken(data map[string]interface{}) (*string, *int64, error) {
+func createRefreshToken(data map[string]interface{}) (*string, *time.Duration, error) {
 	jwtTimeout, _ := time.ParseDuration(config.GetConfig().JWTConfig.Timeout)
 	exp := time.Now().Add(jwtTimeout * 2).Unix()
 
@@ -76,10 +76,10 @@ func createRefreshToken(data map[string]interface{}) (*string, *int64, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return &refreshToken, &exp, err
+	return &refreshToken, &jwtTimeout, err
 }
 
-func GenerateTokenPair(data map[string]interface{}) (*string, *string, *int64, *int64, error) {
+func GenerateTokenPair(data map[string]interface{}) (*string, *string, *time.Duration, *time.Duration, error) {
 	accessToken, expiredToken, err := createAccessToken(data)
 	if err != nil {
 		return nil, nil, nil, nil, err

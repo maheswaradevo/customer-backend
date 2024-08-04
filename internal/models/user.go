@@ -112,12 +112,12 @@ type (
 		Password string `json:"password" form:"password"`
 	}
 	LoginResponse struct {
-		UserID              uint64 `json:"user_id"`
-		Username            string `json:"username"`
-		Email               string `json:"email"`
-		AccessToken         string `json:"access_token"`
-		RefreshToken        string `json:"refresh_token"`
-		ExpiredToken        int64  `json:"expired_token"`
-		ExpiredRefreshToken int64  `json:"expired_refresh_token"`
+		UserID              uint64        `json:"user_id"`
+		Username            string        `json:"username"`
+		Email               string        `json:"email"`
+		AccessToken         string        `json:"access_token"`
+		RefreshToken        string        `json:"refresh_token"`
+		ExpiredToken        time.Duration `json:"expired_token"`
+		ExpiredRefreshToken time.Duration `json:"expired_refresh_token"`
 	}
 )
