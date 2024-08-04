@@ -3,6 +3,7 @@ package repository
 import (
 	"customer-service-backend/internal/entity"
 	"customer-service-backend/internal/models"
+	"fmt"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -11,10 +12,14 @@ import (
 type CreditLimitRepository struct {
 	Repository[entity.CreditLimit]
 	logger *zap.Logger
+	DB     *gorm.DB
 }
 
-func NewCreditLimitRepository(logger *zap.Logger) *CreditLimitRepository {
-	return &CreditLimitRepository{logger: logger}
+func NewCreditLimitRepository(DB *gorm.DB, logger *zap.Logger) *CreditLimitRepository {
+	return &CreditLimitRepository{
+		DB:     DB,
+		logger: logger,
+	}
 }
 
 func (r *CreditLimitRepository) Create(db *gorm.DB, data *models.CreditLimitCreateRequest) (*entity.CreditLimit, error) {
@@ -66,4 +71,37 @@ func (r *CreditLimitRepository) Delete(db *gorm.DB, id uint64) error {
 		return err
 	}
 	return nil
+}
+
+func (r *CreditLimitRepository) GetAll(customerID uint64) (*[]entity.CreditLimit, int64, error) {
+	var result []entity.CreditLimit
+	var count int64
+
+	if r == nil {
+		r.logger.Error("CreditLimitRepository is nil")
+	}
+	if r.logger == nil {
+		// log a message using a fallback logger or panic
+		fmt.Println("Logger is nil")
+	}
+	if r.DB == nil {
+		// log a message using a fallback logger or panic
+		fmt.Println("Database connection is nil")
+	}
+
+	query := r.DB.Model(&entity.CreditLimit{}).Where("customer_id = ?", customerID)
+
+	err := query.Count(&count).Error
+	if err != nil {
+		r.logger.Error("failed to get all credit limit: ", zap.Error(err))
+		return nil, 0, err
+	}
+
+	err = query.Find(&result).Error
+	if err != nil {
+		r.logger.Error("failed to get all credit limit: ", zap.Error(err))
+		return nil, 0, err
+	}
+
+	return &result, count, nil
 }

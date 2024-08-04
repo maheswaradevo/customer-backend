@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"customer-service-backend/internal/common/constants"
 	"customer-service-backend/internal/common/helpers"
 	"customer-service-backend/internal/gateway/messaging"
@@ -8,11 +9,13 @@ import (
 	"customer-service-backend/internal/models/converter"
 	"customer-service-backend/internal/repository"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
@@ -27,10 +30,12 @@ type AuthUseCase struct {
 	CustomerRepository    *repository.CustomerRepository
 	TenorRepository       *repository.TenorRepository
 	CreditLimitRepository *repository.CreditLimitRepository
+	RedisClient           *redis.Client
 	UserMessaging         *messaging.UserPublisher
+	CreditLimitMessaging  *messaging.CreditLimitPublisher
 }
 
-func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository, tenorRepository *repository.TenorRepository, creditLimitRepository *repository.CreditLimitRepository, userMessaging *messaging.UserPublisher) *AuthUseCase {
+func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository, tenorRepository *repository.TenorRepository, creditLimitRepository *repository.CreditLimitRepository, userMessaging *messaging.UserPublisher, creditLimitMessaging *messaging.CreditLimitPublisher, redisClient *redis.Client) *AuthUseCase {
 	return &AuthUseCase{
 		DB:                    db,
 		Log:                   logger,
@@ -39,6 +44,8 @@ func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.
 		UserMessaging:         userMessaging,
 		TenorRepository:       tenorRepository,
 		CreditLimitRepository: creditLimitRepository,
+		RedisClient:           redisClient,
+		CreditLimitMessaging:  creditLimitMessaging,
 	}
 }
 
@@ -216,9 +223,47 @@ func (u *AuthUseCase) Login(ctx echo.Context, data models.LoginRequest) (*models
 		ExpiredRefreshToken: *expRefreshToken,
 	}
 
+	userIdStr := strconv.FormatUint(user.ID, 10)
+
+	ctxRedis := context.Background()
+
+	err = u.RedisClient.Set(ctxRedis, fmt.Sprintf("%s:%s", constants.AccessTokenKey, userIdStr), *accessToken, time.Until(time.Now().Add(*expiredToken))).Err()
+	if err != nil {
+		u.Log.Error("failed to save access token to Redis: ", zap.Error(err))
+		return nil, err
+	}
+
+	err = u.RedisClient.Set(ctxRedis, fmt.Sprintf("%s:%s", constants.RefreshTokenKey, userIdStr), *refreshToken, time.Until(time.Now().Add(*expRefreshToken))).Err()
+	if err != nil {
+		u.Log.Error("failed to save refresh token to Redis: ", zap.Error(err))
+		return nil, err
+	}
+
 	go u.PublishUserLoginData(&result)
 
 	return &result, nil
+}
+
+func (u *AuthUseCase) HandleCreditLimitRequest(customerID uint64) (bool, error) {
+	creditLimit, _, err := u.CreditLimitRepository.GetAll(customerID)
+	if err != nil {
+		u.Log.Error(err.Error())
+		return false, err
+	}
+	var eventData []models.CreditLimitEvent
+
+	for _, v := range *creditLimit {
+		eventData = append(eventData, models.CreditLimitEvent{
+			ID:          v.ID,
+			CustomerID:  v.CustomerID,
+			CreditLimit: v.CreditLimit,
+			StartDate:   v.StartDate,
+			EndDate:     *v.EndDate,
+		})
+	}
+
+	go u.PublishCreditLimitData(&eventData)
+	return true, nil
 }
 
 func (u *AuthUseCase) PublishUserLoginData(data *models.LoginResponse) (bool, error) {
@@ -237,6 +282,16 @@ func (u *AuthUseCase) PublishUserLoginData(data *models.LoginResponse) (bool, er
 		ExpiredToken:        data.ExpiredToken,
 		ExpiredRefreshToken: data.ExpiredRefreshToken,
 	})
+}
+
+func (u *AuthUseCase) PublishCreditLimitData(data *[]models.CreditLimitEvent) (bool, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			u.Log.Error("recovered from panic ", zap.Any("error", err))
+		}
+	}()
+
+	return u.CreditLimitMessaging.PushCreditLimitData(data)
 }
 
 func newRandomGenerator() *rand.Rand {

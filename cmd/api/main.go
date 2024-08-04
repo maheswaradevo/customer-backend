@@ -21,6 +21,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to start rabbitmq client: ", zap.Error(err))
 	}
+	rdb := config.NewRedis(cfg, logger)
 
 	route.Bootstrap(&route.BootstrapConfig{
 		DB:           db,
@@ -31,6 +32,7 @@ func main() {
 		RabbitMQChan: rabbitMqClient.Chann,
 		RabbitMQQuit: rabbitMqClient.QuitChann,
 		Events:       config.NewEvent(cfg),
+		Redis:        rdb,
 	})
 
 	var address string
