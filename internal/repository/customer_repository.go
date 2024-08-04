@@ -25,7 +25,6 @@ func (r *CustomerRepository) Create(db *gorm.DB, customer *models.CustomerCreate
 		BirthdayLoc:  customer.BirthdayLoc,
 		BirthdayDate: customer.BirthdayDateTime,
 		Salary:       customer.Salary,
-		UpdatedAt:    nil,
 	}
 	err := db.Create(&result).Error
 	if err != nil {

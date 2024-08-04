@@ -8,7 +8,9 @@ import (
 	"customer-service-backend/internal/models/converter"
 	"customer-service-backend/internal/repository"
 	"errors"
+	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -19,26 +21,32 @@ import (
 )
 
 type AuthUseCase struct {
-	DB                 *gorm.DB
-	Log                *zap.Logger
-	AuthRepository     *repository.AuthRepository
-	CustomerRepository *repository.CustomerRepository
-	UserMessaging      *messaging.UserPublisher
+	DB                    *gorm.DB
+	Log                   *zap.Logger
+	AuthRepository        *repository.AuthRepository
+	CustomerRepository    *repository.CustomerRepository
+	TenorRepository       *repository.TenorRepository
+	CreditLimitRepository *repository.CreditLimitRepository
+	UserMessaging         *messaging.UserPublisher
 }
 
-func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository, userMessaging *messaging.UserPublisher) *AuthUseCase {
+func NewUserUseCase(db *gorm.DB, logger *zap.Logger, authRepository *repository.AuthRepository, customerRepository *repository.CustomerRepository, tenorRepository *repository.TenorRepository, creditLimitRepository *repository.CreditLimitRepository, userMessaging *messaging.UserPublisher) *AuthUseCase {
 	return &AuthUseCase{
-		DB:                 db,
-		Log:                logger,
-		AuthRepository:     authRepository,
-		CustomerRepository: customerRepository,
-		UserMessaging:      userMessaging,
+		DB:                    db,
+		Log:                   logger,
+		AuthRepository:        authRepository,
+		CustomerRepository:    customerRepository,
+		UserMessaging:         userMessaging,
+		TenorRepository:       tenorRepository,
+		CreditLimitRepository: creditLimitRepository,
 	}
 }
 
 func (u *AuthUseCase) Register(ctx echo.Context, request *models.CustomerRegisterRequest) (*models.UserResponse, error) {
 	tx := u.DB.WithContext(helpers.Context(ctx)).Begin()
 	defer tx.Rollback()
+
+	randGen := newRandomGenerator()
 
 	userGet, err := u.AuthRepository.Get(tx, models.UserGetRequest{
 		Email: request.Email,
@@ -115,6 +123,52 @@ func (u *AuthUseCase) Register(ctx echo.Context, request *models.CustomerRegiste
 		return nil, err
 	}
 
+	tenors, _, err := u.TenorRepository.GetAll(tx)
+	if err != nil {
+		tx.Rollback()
+		u.Log.Error("failed to get all tenor: ", zap.Error(err))
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	var creditLimitError error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, v := range *tenors {
+			var month int
+			if v.TenorDescription == constants.OneMonth {
+				month = 1
+			} else if v.TenorDescription == constants.TwoMonth {
+				month = 2
+			} else if v.TenorDescription == constants.ThreeMonth {
+				month = 3
+			} else if v.TenorDescription == constants.SixMonth {
+				month = 6
+			}
+			creditLimit := generateRandomCreditLimit(randGen, 1000000, 3000000)
+			_, err := u.CreditLimitRepository.Create(tx, &models.CreditLimitCreateRequest{
+				CustomerID:    user.ID,
+				CreditLimit:   float64(creditLimit),
+				TenorID:       v.ID,
+				StartDateTime: time.Now(),
+				EndDateTime:   time.Now().AddDate(0, month, 0),
+			})
+			if err != nil {
+				creditLimitError = err
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	if creditLimitError != nil {
+		tx.Rollback()
+		u.Log.Error("failed to create credit limit: ", zap.Error(creditLimitError))
+		return nil, creditLimitError
+	}
+
 	tx.Commit()
 
 	result := converter.UserToResponse(user)
@@ -183,4 +237,12 @@ func (u *AuthUseCase) PublishUserLoginData(data *models.LoginResponse) (bool, er
 		ExpiredToken:        data.ExpiredToken,
 		ExpiredRefreshToken: data.ExpiredRefreshToken,
 	})
+}
+
+func newRandomGenerator() *rand.Rand {
+	return rand.New(rand.NewSource(time.Now().UnixNano()))
+}
+
+func generateRandomCreditLimit(r *rand.Rand, min, max int) int {
+	return r.Intn(max-min+1) + min
 }
