@@ -7,6 +7,7 @@ import (
 	"customer-service-backend/internal/models/converter"
 	"customer-service-backend/internal/repository"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -48,6 +49,20 @@ func (u *AuthUseCase) Register(ctx echo.Context, request *models.CustomerRegiste
 	if userGet != nil {
 		u.Log.Error("cannot use the same email")
 		err = errors.New("email can't be same")
+		return nil, err
+	}
+
+	if len(request.IdNumber) != constants.NIKLen {
+		err = errors.New("NIK should be 16 digits")
+		return nil, err
+	}
+
+	if _, err := strconv.Atoi(request.IdNumber); err != nil {
+		return nil, errors.New("NIK should only contain digits")
+	}
+
+	err = helpers.ValidateIDNumber(request.IdNumber)
+	if err != nil {
 		return nil, err
 	}
 
