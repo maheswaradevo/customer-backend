@@ -59,6 +59,7 @@ func Bootstrap(config *BootstrapConfig) {
 
 	time.AfterFunc(2*time.Second, func() {
 		creditLimitConsumer.ConsumeCreditLimitRequest(config.DB, config.Log, &config.Events)
+		creditLimitConsumer.ConsumeUpdateCreditLimit(config.DB, config.Log, &config.Events)
 	})
 
 	routeConfig.Setup()

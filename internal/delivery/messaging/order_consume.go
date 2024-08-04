@@ -45,3 +45,28 @@ func (c *CreditLimitConsumer) ConsumeCreditLimitRequest(db *gorm.DB, log *zap.Lo
 		}
 	}(msgs)
 }
+
+func (c *CreditLimitConsumer) ConsumeUpdateCreditLimit(db *gorm.DB, log *zap.Logger, events *models.Events) {
+	msgs, err := events.SubGroup("update").Subscribe(context.TODO(), common.CreditLimitExchange)
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	go func(msgs <-chan *message.Message) {
+		for msg := range msgs {
+			data := &consumer.CreditLimitUpdate{}
+			if err := json.Unmarshal([]byte(msg.Payload), &data); err != nil {
+				continue
+			}
+
+			_, err := c.UseCase.HandleUpdateFromOrder(data)
+			if err != nil {
+				log.Error("failed to update: ", zap.Error(err))
+				continue
+			}
+
+			msg.Ack()
+			log.Info("success consume message topic: " + common.UserDataSent)
+		}
+	}(msgs)
+}

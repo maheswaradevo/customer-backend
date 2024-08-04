@@ -6,6 +6,7 @@ import (
 	"customer-service-backend/internal/common/helpers"
 	"customer-service-backend/internal/gateway/messaging"
 	"customer-service-backend/internal/models"
+	"customer-service-backend/internal/models/consumer"
 	"customer-service-backend/internal/models/converter"
 	"customer-service-backend/internal/repository"
 	"errors"
@@ -257,12 +258,25 @@ func (u *AuthUseCase) HandleCreditLimitRequest(customerID uint64) (bool, error) 
 			ID:          v.ID,
 			CustomerID:  v.CustomerID,
 			CreditLimit: v.CreditLimit,
+			TenorID:     v.TenorID,
 			StartDate:   v.StartDate,
 			EndDate:     *v.EndDate,
 		})
 	}
 
 	go u.PublishCreditLimitData(&eventData)
+	return true, nil
+}
+
+func (u *AuthUseCase) HandleUpdateFromOrder(data *consumer.CreditLimitUpdate) (bool, error) {
+	err := u.CreditLimitRepository.Update(models.CreditLimitUpdateRequest{
+		ID:          data.ID,
+		CreditLimit: data.CreditLimit,
+	})
+	if err != nil {
+		u.Log.Error("failed to update credit limit: ", zap.Error(err))
+		return false, err
+	}
 	return true, nil
 }
 
